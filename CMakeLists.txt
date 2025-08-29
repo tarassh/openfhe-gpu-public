@@ -77,6 +77,7 @@ else()
 endif()
 
 option( BUILD_EXTRAS "Set to ON to build extras for the library"                     OFF )
+option( BUILD_BENCHMARKS "Set to ON to build benchmarks for the library"             OFF )
 option( GIT_SUBMOD_AUTO "Submodules auto-update"                                     ON  )
 option( WITH_BE2 "Include MATHBACKEND 2 in build by setting WITH_BE2 to ON"          OFF )
 option( WITH_BE4 "Include MATHBACKEND 4 in build by setting WITH_BE4 to ON"          OFF )
@@ -689,7 +690,8 @@ if(APPLE)
   # Metal build on Apple
   file(GLOB CORE_METAL_SRC CONFIGURE_DEPENDS src/core/lib/gpu/vector_add_metal.mm)
   add_library(DeviceFunctions SHARED ${CORE_METAL_SRC})
-  target_compile_features(DeviceFunctions PUBLIC cxx_std_17)
+  # Avoid target_compile_features due to Clang feature table mismatch on some environments
+  set_property(TARGET DeviceFunctions PROPERTY CXX_STANDARD 17)
   find_library(METAL_FRAMEWORK Metal)
   find_library(METALKIT_FRAMEWORK MetalKit)
   find_library(FOUNDATION_FRAMEWORK Foundation)
@@ -726,13 +728,13 @@ add_subdirectory(src/binfhe)
 ###endif()
 
 ### build the google benchmark handlers (just the parts we need)
-# if ( BUILD_BENCHMARKS )
+if ( BUILD_BENCHMARKS )
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Enable testing of the benchmark library." FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Enable installation of benchmark. (Projects embedding benchmark may want to turn this OFF.)" FORCE)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "Enable building the unit tests which depend on gtest" FORCE)
     add_subdirectory(third-party/google-benchmark EXCLUDE_FROM_ALL)
     add_subdirectory(benchmark)
-# endif()
+endif()
 
 ## clobber cleans AND deletes the third-party stuff
 add_custom_target( clobber COMMAND make clean WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )

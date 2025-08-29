@@ -74,3 +74,4 @@ test_detail.xml
 
 # Visual Studio Code
 .vscode
+.cache

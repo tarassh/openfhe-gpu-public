@@ -13,6 +13,7 @@ include(FetchContent)
 #         googlebenchmark)
 
 
+if (NOT APPLE)
 FetchContent_Declare(
     rmm
     GIT_REPOSITORY https://github.com/rapidsai/rmm
@@ -23,3 +24,4 @@ option(BUILD_TESTS OFF)
 # set(BUILD_BENCHMARKS OFF)
 # target_link_libraries(rmm benchmark::benchmark)
 FetchContent_MakeAvailable(rmm)
+endif()
