@@ -679,30 +679,41 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 70 72 75 80 86)
 endif()
 
-project(DeviceFunctions LANGUAGES CUDA CXX)
+project(DeviceFunctions LANGUAGES CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # message("CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 
-find_package(CUDAToolkit REQUIRED)
-find_package(Thrust REQUIRED)
-
-file (GLOB_RECURSE CORE_CUDA_FILES CONFIGURE_DEPENDS src/core/lib/gpu/*.cu)
-add_library(DeviceFunctions SHARED ${CORE_CUDA_FILES})
-
-target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda/lib64)
-target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda-12.3/lib64)
-target_link_libraries(DeviceFunctions
-  PUBLIC Thrust CUDA::cudart rmm
-  PRIVATE CUDA::nvToolsExt)
-target_compile_features(DeviceFunctions PUBLIC cxx_std_17 cuda_std_17)
-target_compile_options(DeviceFunctions PRIVATE
-  $<$<COMPILE_LANGUAGE:CXX>:-Wall>
-  $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp,-Wall>
-  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G>
-  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
-)
+if(APPLE)
+  # Metal build on Apple
+  file(GLOB CORE_METAL_SRC CONFIGURE_DEPENDS src/core/lib/gpu/vector_add_metal.mm)
+  add_library(DeviceFunctions SHARED ${CORE_METAL_SRC})
+  target_compile_features(DeviceFunctions PUBLIC cxx_std_17)
+  find_library(METAL_FRAMEWORK Metal)
+  find_library(METALKIT_FRAMEWORK MetalKit)
+  find_library(FOUNDATION_FRAMEWORK Foundation)
+  target_link_libraries(DeviceFunctions PUBLIC ${METAL_FRAMEWORK} ${METALKIT_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
+  set_target_properties(DeviceFunctions PROPERTIES LINK_FLAGS "-ObjC++")
+else()
+  enable_language(CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  find_package(Thrust REQUIRED)
+  file (GLOB_RECURSE CORE_CUDA_FILES CONFIGURE_DEPENDS src/core/lib/gpu/*.cu)
+  add_library(DeviceFunctions SHARED ${CORE_CUDA_FILES})
+  target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda/lib64)
+  target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda-12.3/lib64)
+  target_link_libraries(DeviceFunctions
+    PUBLIC Thrust CUDA::cudart rmm
+    PRIVATE CUDA::nvToolsExt)
+  target_compile_features(DeviceFunctions PUBLIC cxx_std_17 cuda_std_17)
+  target_compile_options(DeviceFunctions PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp,-Wall>
+    $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G>
+    $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
+  )
+endif()
 
 ### add each of the subdirs of src
 add_subdirectory(src/core)
