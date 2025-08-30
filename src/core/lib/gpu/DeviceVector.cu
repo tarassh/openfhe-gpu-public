@@ -4,6 +4,9 @@
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  */
+
+#ifndef __APPLE__
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
@@ -20,3 +23,5 @@ void DeviceVector::append(const DeviceVector& out) {
   cudaMemcpyAsync(data() + old_size, out.data(), out.size() * sizeof(Dtype),
                   cudaMemcpyDefault, stream_);
 }
+
+#endif // __APPLE__

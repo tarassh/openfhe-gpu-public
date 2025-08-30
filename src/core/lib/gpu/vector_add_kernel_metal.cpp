@@ -1,27 +1,56 @@
 // This program computes the sum of two vectors of length N
-// By: Nick from CoffeeBeforeArch
-// CUDA implementation - only compiled on non-Apple platforms
-
-#ifndef __APPLE__
+// Metal implementation
 
 #include "vector_add_kernel.h"
 
+#ifdef __APPLE__
+#include "MetalHelper.h"
+
+void add_vectors(std::vector<int> &a, std::vector<int> &b,
+                   std::vector<int> &c) {
+    ckks::MetalHelper& metalHelper = ckks::MetalHelper::getInstance();
+    
+    const size_t N = a.size();
+    const size_t bytes = sizeof(int) * N;
+    
+    // Create Metal buffers
+    auto bufferA = metalHelper.createBufferWithData(a.data(), bytes);
+    auto bufferB = metalHelper.createBufferWithData(b.data(), bytes);
+    auto bufferC = metalHelper.createBuffer(bytes);
+    auto bufferN = metalHelper.createBufferWithData(&N, sizeof(uint32_t));
+    
+    // Create compute pipeline
+    auto pipelineState = metalHelper.createComputePipelineState(@"vectorAdd");
+    
+    // Execute computation
+    NSArray<id<MTLBuffer>>* buffers = @[bufferA, bufferB, bufferC, bufferN];
+    MTLSize gridSize = MTLSizeMake(N, 1, 1);
+    
+    metalHelper.executeCompute(pipelineState, buffers, gridSize);
+    
+    // Copy result back to host
+    metalHelper.copyFromBuffer(c.data(), bufferC, bytes);
+}
+
+void verify_result(std::vector<int> &a, std::vector<int> &b,
+                   std::vector<int> &c) {
+    for (int i = 0; i < a.size(); i++) {
+        assert(c[i] == a[i] + b[i]);
+    }
+}
+
+#else
+// Fallback CUDA implementation for non-Apple platforms
+
 // CUDA kernel for vector addition
-// __global__ means this is called from the CPU, and runs on the GPU
 __global__ void vectorAdd(const int *__restrict a, const int *__restrict b,
                           int *__restrict c, int N) {
-  // Calculate global thread ID
   int tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-  // Boundary check
   if (tid < N) c[tid] = a[tid] + b[tid];
 }
 
 void add_vectors(std::vector<int> &a, std::vector<int> &b,
                    std::vector<int> &c) {
-
-    
-                  
   const size_t N = a.size();
   const size_t bytes = sizeof(int) * N;
 
@@ -37,25 +66,13 @@ void add_vectors(std::vector<int> &a, std::vector<int> &b,
 
   // Threads per CTA (1024)
   int NUM_THREADS = 1 << 10;
-
-  // CTAs per Grid
-  // We need to launch at LEAST as many threads as we have elements
-  // This equation pads an extra CTA to the grid if N cannot evenly be divided
-  // by NUM_THREADS (e.g. N = 1025, NUM_THREADS = 1024)
   int NUM_BLOCKS = (N + NUM_THREADS - 1) / NUM_THREADS;
 
   // Launch the kernel on the GPU
-  // Kernel calls are asynchronous (the CPU program continues execution after
-  // call, but no necessarily before the kernel finishes)
   vectorAdd<<<NUM_BLOCKS, NUM_THREADS>>>(d_a, d_b, d_c, N);
 
   // Copy sum vector from device to host
-  // cudaMemcpy is a synchronous operation, and waits for the prior kernel
-  // launch to complete (both go to the default stream in this case).
-  // Therefore, this cudaMemcpy acts as both a memcpy and synchronization
-  // barrier.
   cudaMemcpy(c.data(), d_c, bytes, cudaMemcpyDeviceToHost);                 
-
 
   // Free memory on device
   cudaFree(d_a);
@@ -63,7 +80,6 @@ void add_vectors(std::vector<int> &a, std::vector<int> &b,
   cudaFree(d_c);
 }
 
-// Check vector add result
 void verify_result(std::vector<int> &a, std::vector<int> &b,
                    std::vector<int> &c) {
   for (int i = 0; i < a.size(); i++) {
@@ -71,4 +87,4 @@ void verify_result(std::vector<int> &a, std::vector<int> &b,
   }
 }
 
-#endif // __APPLE__
+#endif

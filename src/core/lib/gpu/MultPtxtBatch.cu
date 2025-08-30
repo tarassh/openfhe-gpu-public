@@ -4,6 +4,9 @@
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  */
+
+// MultPtxtBatch implementation - works for both CUDA and Metal
+
 #include "Ciphertext.h"
 #include "DeviceVector.h"
 #include "MultPtxtBatch.h"
@@ -20,9 +23,18 @@ void MultPtxtBatch::push(const Ciphertext& op1, const Plaintext& op2) {
   if (ax__.size() == 0) {
     required_size = ax.size();
   }
+  
+#ifdef __APPLE__
+  // For Metal, we store buffer pointers differently
   ax__.push_back(ax.data());
   bx__.push_back(bx.data());
   mx__.push_back(mx.data());
+#else
+  // CUDA implementation
+  ax__.push_back(ax.data());
+  bx__.push_back(bx.data());
+  mx__.push_back(mx.data());
+#endif
 }
 
 void MultPtxtBatch::flush(Ciphertext& out) {

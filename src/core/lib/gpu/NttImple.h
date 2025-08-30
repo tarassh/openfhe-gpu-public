@@ -11,6 +11,9 @@
 
 namespace ckks {
 
+#ifndef __APPLE__
+// CUDA kernel declarations
+
 __global__ void Intt8PointPerThreadPhase2OoP(
     const word64 *in, const int m, const int num_prime, const int N,
     const int start_prime_idx, const int radix, const word64 *base_inv,
@@ -75,5 +78,28 @@ __global__ void Ntt8PointPerThreadPhase2OoP(
     const word64 *in, const int m, const int num_prime, const int N,
     const int start_prime_idx, int radix, const word64 *base_inv,
     const word64 *base_inv_, const word64 *primes, word64 *out);
+
+#else
+// Metal function declarations - Metal kernels are loaded dynamically
+// so we only need wrapper function declarations here
+
+void Intt8PointPerThreadPhase1OoP_metal(
+    const DeviceVector& input, DeviceVector& output,
+    const DeviceVector& base_inv, const DeviceVector& base_inv_,
+    const DeviceVector& primes, int m, int num_prime, int N,
+    int start_prime_idx, int pad, int radix);
+
+void Ntt8PointPerThreadPhase1_metal(
+    DeviceVector& op, int m, int num_prime, int N,
+    int start_prime_idx, int pad, int radix,
+    const DeviceVector& base_inv, const DeviceVector& base_inv_,
+    const DeviceVector& primes);
+
+void modUpStepTwoSimple_metal(
+    const DeviceVector& ptr_after_intt, const DeviceVector& ptr_hat_inv_mod_down,
+    const DeviceVector& ptr_hat_inv_mod_down_, const DeviceVector& primes,
+    DeviceVector& result, int num_prime, int degree, int down_start);
+
+#endif
 
 }  // namespace ckks

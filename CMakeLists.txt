@@ -679,30 +679,80 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 70 72 75 80 86)
 endif()
 
-project(DeviceFunctions LANGUAGES CUDA CXX)
+if(APPLE)
+    project(DeviceFunctions LANGUAGES CXX OBJCXX)
+    enable_language(OBJCXX)
+    # Find Metal framework on macOS
+    find_library(METAL_FRAMEWORK Metal REQUIRED)
+    find_library(METALKIT_FRAMEWORK MetalKit REQUIRED)
+    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+else()
+    project(DeviceFunctions LANGUAGES CUDA CXX)
+    find_package(CUDAToolkit REQUIRED)
+    find_package(Thrust REQUIRED)
+endif()
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # message("CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 
-find_package(CUDAToolkit REQUIRED)
-find_package(Thrust REQUIRED)
+if(APPLE)
+    # Metal implementation
+    file(GLOB_RECURSE CORE_GPU_FILES CONFIGURE_DEPENDS 
+         src/core/lib/gpu/*.metal
+         src/core/lib/gpu/*metal*.cpp
+         src/core/lib/gpu/MetalHelper.h
+         src/core/lib/gpu/MetalHelper.cpp)
+    
+    # Include CUDA files but exclude them from compilation on Apple
+    file(GLOB_RECURSE CORE_CUDA_FILES CONFIGURE_DEPENDS src/core/lib/gpu/*.cu)
+    set_source_files_properties(${CORE_CUDA_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
+    
+    add_library(DeviceFunctions SHARED ${CORE_GPU_FILES} ${CORE_CUDA_FILES})
+    
+    target_link_libraries(DeviceFunctions
+        PUBLIC ${METAL_FRAMEWORK} ${METALKIT_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
+    target_compile_features(DeviceFunctions PUBLIC cxx_std_17)
+    target_compile_options(DeviceFunctions PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+        $<$<COMPILE_LANGUAGE:OBJCXX>:-Wall>)
+    
+    # Add custom command to compile Metal shaders
+    set(METAL_SOURCES 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core/lib/gpu/vector_add_kernel.metal
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core/lib/gpu/ntt_kernels.metal)
+    set(METAL_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/openfhe_metal.metallib)
+    
+    add_custom_command(
+        OUTPUT ${METAL_LIBRARY}
+        COMMAND xcrun -sdk macosx metal ${METAL_SOURCES} -o ${CMAKE_CURRENT_BINARY_DIR}/openfhe_metal.air
+        COMMAND xcrun -sdk macosx metallib ${CMAKE_CURRENT_BINARY_DIR}/openfhe_metal.air -o ${METAL_LIBRARY}
+        DEPENDS ${METAL_SOURCES}
+        COMMENT "Compiling Metal shaders"
+    )
+    
+    add_custom_target(MetalShaders DEPENDS ${METAL_LIBRARY})
+    add_dependencies(DeviceFunctions MetalShaders)
+    
+else()
+    # CUDA implementation
+    file (GLOB_RECURSE CORE_CUDA_FILES CONFIGURE_DEPENDS src/core/lib/gpu/*.cu)
+    add_library(DeviceFunctions SHARED ${CORE_CUDA_FILES})
 
-file (GLOB_RECURSE CORE_CUDA_FILES CONFIGURE_DEPENDS src/core/lib/gpu/*.cu)
-add_library(DeviceFunctions SHARED ${CORE_CUDA_FILES})
-
-target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda/lib64)
-target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda-12.3/lib64)
-target_link_libraries(DeviceFunctions
-  PUBLIC Thrust CUDA::cudart rmm
-  PRIVATE CUDA::nvToolsExt)
-target_compile_features(DeviceFunctions PUBLIC cxx_std_17 cuda_std_17)
-target_compile_options(DeviceFunctions PRIVATE
-  $<$<COMPILE_LANGUAGE:CXX>:-Wall>
-  $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp,-Wall>
-  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G>
-  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
-)
+    target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda/lib64)
+    target_link_directories(DeviceFunctions PUBLIC /usr/local/cuda-12.3/lib64)
+    target_link_libraries(DeviceFunctions
+      PUBLIC Thrust CUDA::cudart rmm
+      PRIVATE CUDA::nvToolsExt)
+    target_compile_features(DeviceFunctions PUBLIC cxx_std_17 cuda_std_17)
+    target_compile_options(DeviceFunctions PRIVATE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wall>
+      $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fopenmp,-Wall>
+      $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:DEBUG>>:-G>
+      $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:RELWITHDEBINFO>>:-lineinfo>
+    )
+endif()
 
 ### add each of the subdirs of src
 add_subdirectory(src/core)

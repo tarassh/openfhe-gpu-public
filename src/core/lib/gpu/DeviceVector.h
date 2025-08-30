@@ -6,13 +6,63 @@
  */
 #pragma once
 
+#include "Define.h"
+
+#ifdef __APPLE__
+#import <Metal/Metal.h>
+#include <vector>
+
+namespace ckks {
+using HostVector = std::vector<word64>;
+
+// Metal-based DeviceVector implementation
+class DeviceVector {
+ public:
+  using Dtype = word64;
+
+  // A constructor without initilization.
+  explicit DeviceVector(int size = 0);
+
+  // A constructor with initilization.
+  explicit DeviceVector(const DeviceVector& ref);
+  DeviceVector(DeviceVector&& other);
+
+  DeviceVector& operator=(DeviceVector&& other);
+
+  explicit DeviceVector(const HostVector& ref);
+
+  operator HostVector() const;
+
+  void setConstant(const Dtype c);
+
+  void resize(int size);
+
+  bool operator==(const DeviceVector& other) const;
+
+  bool operator!=(const DeviceVector& other) const;
+
+  void append(const DeviceVector& out);
+
+  // Metal-specific accessors
+  id<MTLBuffer> getBuffer() const { return buffer_; }
+  size_t size() const { return size_; }
+  Dtype* data() const { return static_cast<Dtype*>(buffer_.contents); }
+
+ private:
+  id<MTLBuffer> buffer_;
+  size_t size_;
+  size_t capacity_;
+};
+
+}  // namespace ckks
+
+#else
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
 #include <rmm/device_buffer.hpp>
 #include <rmm/device_uvector.hpp>
-
-#include "Define.h"
 
 namespace ckks {
 using HostVector = thrust::host_vector<word64>;
@@ -71,6 +121,8 @@ class DeviceVector : public rmm::device_uvector<word64> {
   };
 
 }  // namespace ckks
+
+#endif
 
 // using namespace lbcrypto;
 // using namespace ckks;
