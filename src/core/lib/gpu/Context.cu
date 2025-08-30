@@ -4,6 +4,9 @@
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  */
+
+#ifndef __APPLE__
+
 #include <cuda_runtime.h>
 
 #include <algorithm>
@@ -2698,3 +2701,5 @@ void Context::EnableMemoryPool() {
     throw std::logic_error("Enable memory pool twice?");
   }
 }
+
+#endif // __APPLE__

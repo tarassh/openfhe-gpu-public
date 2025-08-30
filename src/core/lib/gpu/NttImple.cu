@@ -4,6 +4,9 @@
  * You should have received a copy of the license along with this
  * work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.
  */
+
+#ifndef __APPLE__
+
 #include <cuda_runtime.h>
 
 #include "Basic.h"
@@ -1328,3 +1331,5 @@ __global__ void Ntt8PointPerThreadPhase2OoP(
 }
 
 }  // namespace ckks
+
+#endif // __APPLE__

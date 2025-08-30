@@ -719,7 +719,9 @@ if(APPLE)
         $<$<COMPILE_LANGUAGE:OBJCXX>:-Wall>)
     
     # Add custom command to compile Metal shaders
-    set(METAL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/core/lib/gpu/vector_add_kernel.metal)
+    set(METAL_SOURCES 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core/lib/gpu/vector_add_kernel.metal
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core/lib/gpu/ntt_kernels.metal)
     set(METAL_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/openfhe_metal.metallib)
     
     add_custom_command(
