@@ -6,12 +6,14 @@
  */
 #pragma once
 
-#include <thrust/host_vector.h>
-
 #include <vector>
 
 #include "Ciphertext.h"
 #include "Context.h"
+
+#ifndef __APPLE__
+#include <thrust/host_vector.h>
+#endif
 
 namespace ckks {
 
